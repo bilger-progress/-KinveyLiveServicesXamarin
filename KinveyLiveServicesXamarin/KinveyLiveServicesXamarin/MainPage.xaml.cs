@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Xamarin.Forms;
 using Kinvey;
 
@@ -24,7 +20,10 @@ namespace KinveyLiveServicesXamarin
 
             // Set-up the Kinvey Client.
             this.kinveyClient = builder.Build();
+            // Ping Kinvey Backend.
             this.KinveyPing();
+            // Continue setting-up Kinvey Live Services.
+            this.ProceedKinveyLiveServices();
         }
 
         /// <summary>
@@ -45,6 +44,51 @@ namespace KinveyLiveServicesXamarin
                 // Log any problems.
                 Console.WriteLine(exc.Message);
             }
+        }
+
+        /// <summary>
+        /// 
+        /// Login if not already.
+        /// Register for Kinvey Live Services.
+        /// Subscribe for "Books" collection.
+        /// Output any messages on the console.
+        /// 
+        /// </summary>
+        private async void ProceedKinveyLiveServices()
+        {
+            if (!Client.SharedClient.IsUserLoggedIn())
+            {
+                // Sample user.
+                await User.LoginAsync("", "");
+            }
+
+            try
+            {
+                await kinveyClient.ActiveUser.RegisterRealtimeAsync();
+            }
+            catch (KinveyException exc)
+            {
+                // Handle registration errors.
+                Console.WriteLine(exc.Message);
+            }
+
+            // Will test with book entities.
+            DataStore<Book> Books = DataStore<Book>.Collection("Books");
+            await Books.Subscribe(new KinveyDataStoreDelegate<Book>
+            {
+                OnNext = (result) => {
+                    // Handle new real-time messages.
+                    Console.WriteLine("Book title: " + result.Title);
+                },
+                OnStatus = (status) => {
+                    // Handle subscription status changes.
+                    Console.WriteLine("Subscription Status Change: " + status.Message);
+                },
+                OnError = (error) => {
+                    // Handle errors.
+                    Console.WriteLine("Error: " + error.Message);
+                }
+            });
         }
     }
 
