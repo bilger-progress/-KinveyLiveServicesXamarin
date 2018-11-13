@@ -1,6 +1,8 @@
 ﻿using System;
 using Xamarin.Forms;
 using Kinvey;
+using Plugin.Connectivity;
+using System.Linq;
 
 namespace KinveyLiveServicesXamarin
 {
@@ -24,6 +26,24 @@ namespace KinveyLiveServicesXamarin
             this.KinveyPing();
             // Continue setting-up Kinvey Live Services.
             this.ProceedKinveyLiveServices();
+
+            // Listen for connectivity changes.
+            CrossConnectivity.Current.ConnectivityChanged += (sender, args) =>
+            {
+                // Make sure to log messages.
+                Console.WriteLine("Connectivity Changed. IsConnected: " + CrossConnectivity.Current.IsConnected);
+            };
+
+            CrossConnectivity.Current.ConnectivityTypeChanged += (sender, args) =>
+            {
+                Console.WriteLine("Connectivity  Type Changed. Types: " + args.ConnectionTypes.FirstOrDefault());
+
+                // If there's connection, reconnect to Kinvey Live Services.
+                if (CrossConnectivity.Current.IsConnected)
+                {
+                    this.ProceedKinveyLiveServices();
+                }
+            };
         }
 
         /// <summary>
@@ -49,6 +69,7 @@ namespace KinveyLiveServicesXamarin
         /// <summary>
         /// 
         /// Login if not already.
+        /// Make sure to destroy any existing connection to Kinvey Live Services.
         /// Register for Kinvey Live Services.
         /// Subscribe for "Books" collection.
         /// Output any messages on the console.
@@ -62,6 +83,19 @@ namespace KinveyLiveServicesXamarin
                 await User.LoginAsync("", "");
             }
 
+            // Close all already existing KLS registrations first.
+            try
+            {
+                await kinveyClient.ActiveUser.UnregisterRealtimeAsync();
+
+            }
+            catch (KinveyException exc)
+            {
+                // Handle unregistration errors.
+                Console.WriteLine(exc.Message);
+            }
+
+            // Register for Kinvey Live Services.
             try
             {
                 await kinveyClient.ActiveUser.RegisterRealtimeAsync();
