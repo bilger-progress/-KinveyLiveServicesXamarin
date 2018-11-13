@@ -9,4 +9,4 @@ In order to test *Kinvey Live Services* with this application you need to make s
 4. When you run the application, make sure to follow the logs on the console. They will
 indicate the state of _Kinvey Live Services_. Each time you add a new entity to the __Kinvey Collection__, those messages will appear on the console logs.
 
-
+Currently this project uses _Xam.Plugin.Connectivity_ package to track connectivity state changes. If a change occurs in the connectivity state, then re-registration to Kinvey Live Services will be triggered.
