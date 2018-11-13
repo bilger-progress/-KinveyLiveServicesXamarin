@@ -8,24 +8,32 @@ namespace KinveyLiveServicesXamarin
 {
     public partial class MainPage : ContentPage
     {
-        private Client kinveyClient = null;
+        private string app_key = "";
+        private string app_secret = "";
+        private string username = "";
+        private string password = "";
+
+        private bool liveServicesProcessing = false;
 
         public MainPage()
         {
             InitializeComponent();
 
-            // Set-up the Client Builder.
-            Client.Builder builder = new Client.Builder("", "")
-                .SetFilePath(DependencyService.Get<ISQLite>().GetPath());
-            // .setOfflinePlatform(DependencyService.Get<ISQLite>().GetConnection());
-            // What happens with the call from above?
-
-            // Set-up the Kinvey Client.
-            this.kinveyClient = builder.Build();
-            // Ping Kinvey Backend.
-            this.KinveyPing();
-            // Continue setting-up Kinvey Live Services.
-            this.ProceedKinveyLiveServices();
+            try
+            {
+                Client.Builder cb = new Client.Builder(this.app_key, this.app_secret).SetFilePath(DependencyService.Get<ISQLite>().GetPath());
+                cb.Build();
+            }
+            catch (KinveyException knvExc)
+            {
+                // Handle any Kinvey exception.
+                Console.WriteLine("Kinvey Exception: " + knvExc.Message);
+            }
+            catch (Exception exc)
+            {
+                // Handle any General exception.
+                Console.WriteLine("General Exception: " + exc.Message);
+            }
 
             // Listen for connectivity changes.
             CrossConnectivity.Current.ConnectivityChanged += (sender, args) =>
@@ -34,95 +42,101 @@ namespace KinveyLiveServicesXamarin
                 Console.WriteLine("Connectivity Changed. IsConnected: " + CrossConnectivity.Current.IsConnected);
             };
 
+            // Listen for connectivity type changes.
             CrossConnectivity.Current.ConnectivityTypeChanged += (sender, args) =>
             {
-                Console.WriteLine("Connectivity  Type Changed. Types: " + args.ConnectionTypes.FirstOrDefault());
+                // Make sure to log messages.
+                Console.WriteLine("Connectivity Type Changed. Types: " + args.ConnectionTypes.FirstOrDefault());
 
-                // If there's connection, reconnect to Kinvey Live Services.
+                // If there's internet connection, reconnect to Kinvey Live Services.
                 if (CrossConnectivity.Current.IsConnected)
                 {
                     this.ProceedKinveyLiveServices();
                 }
             };
+
+            // Kick-off the process.
+            this.ProceedKinveyLiveServices();
         }
 
         /// <summary>
         /// 
-        /// Ping the Kinvey Backend and output the response
-        /// on the Console.
-        /// 
-        /// </summary>
-        private async void KinveyPing()
-        {
-            try
-            {
-                PingResponse response = await kinveyClient.PingAsync();
-                Console.WriteLine("Kinvey Ping Response: " + response.kinvey);
-            }
-            catch (Exception exc)
-            {
-                // Log any problems.
-                Console.WriteLine(exc.Message);
-            }
-        }
-
-        /// <summary>
-        /// 
-        /// Login if not already.
-        /// Make sure to destroy any existing connection to Kinvey Live Services.
-        /// Register for Kinvey Live Services.
-        /// Subscribe for "Books" collection.
-        /// Output any messages on the console.
+        /// Handles login if there is not a user already.
+        /// Disconnects any existing connections to KLS.
+        /// Registers for KLS and subscribes for a collection.
         /// 
         /// </summary>
         private async void ProceedKinveyLiveServices()
         {
+            // If processing is on, then do not bother.
+            if (this.liveServicesProcessing) 
+            {
+                return;
+            }
+
+            // Indicate that processing is on.
+            this.liveServicesProcessing = true;
+
+            // Login if user is not present.
             if (!Client.SharedClient.IsUserLoggedIn())
             {
-                // Sample user.
-                await User.LoginAsync("", "");
-            }
-
-            // Close all already existing KLS registrations first.
-            try
-            {
-                await kinveyClient.ActiveUser.UnregisterRealtimeAsync();
-
-            }
-            catch (KinveyException exc)
-            {
-                // Handle unregistration errors.
-                Console.WriteLine(exc.Message);
-            }
-
-            // Register for Kinvey Live Services.
-            try
-            {
-                await kinveyClient.ActiveUser.RegisterRealtimeAsync();
-            }
-            catch (KinveyException exc)
-            {
-                // Handle registration errors.
-                Console.WriteLine(exc.Message);
-            }
-
-            // Will test with book entities.
-            DataStore<Book> Books = DataStore<Book>.Collection("Books");
-            await Books.Subscribe(new KinveyDataStoreDelegate<Book>
-            {
-                OnNext = (result) => {
-                    // Handle new real-time messages.
-                    Console.WriteLine("Book title: " + result.Title);
-                },
-                OnStatus = (status) => {
-                    // Handle subscription status changes.
-                    Console.WriteLine("Subscription Status Change: " + status.Message);
-                },
-                OnError = (error) => {
-                    // Handle errors.
-                    Console.WriteLine("Error: " + error.Message);
+                try
+                {
+                    await User.LoginAsync(this.username, this.password);
                 }
-            });
+                catch (KinveyException knvExc)
+                {
+                    // Handle any Kinvey exception.
+                    Console.WriteLine("Kinvey Exception: " + knvExc.Message);
+                }
+                catch (Exception exc)
+                {
+                    // Handle any General exception.
+                    Console.WriteLine("General Exception: " + exc.Message);
+                }
+            }
+
+            // If user is present, then go ahead and register KLS.
+            if (Client.SharedClient.IsUserLoggedIn())
+            {
+                try
+                {
+                    // First make sure to close all open connections.
+                    await Client.SharedClient.ActiveUser.UnregisterRealtimeAsync();
+                    // Then register fresh.
+                    await Client.SharedClient.ActiveUser.RegisterRealtimeAsync();
+                    DataStore<Book> Books = DataStore<Book>.Collection("Books");
+                    // Subscribe to a collection.
+                    await Books.Subscribe(new KinveyDataStoreDelegate<Book>
+                    {
+                        OnNext = (result) => {
+                            // Handle new real-time messages.
+                            Console.WriteLine("KLS Book title: " + result.Title);
+                        },
+                        OnStatus = (status) => {
+                            // Handle subscription status changes.
+                            Console.WriteLine("KLS Subscription Status Change: " + status.Message);
+                        },
+                        OnError = (error) => {
+                            // Handle errors.
+                            Console.WriteLine("KLS Error: " + error.Message);
+                        }
+                    });
+                }
+                catch (KinveyException knvExc)
+                {
+                    // Handle any Kinvey exception.
+                    Console.WriteLine("Kinvey Exception: " + knvExc.Message);
+                }
+                catch (Exception exc)
+                {
+                    // Handle any General exception.
+                    Console.WriteLine("General Exception: " + exc.Message);
+                }
+            }
+
+            // At the end indicate that processing has finished.
+            this.liveServicesProcessing = false;
         }
     }
 
