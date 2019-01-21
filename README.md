@@ -1,12 +1,4 @@
 # KinveyLiveServicesXamarin
 Sample project to test *Kinvey Live Services* on a **Xamarin** project.
 
-In order to test *Kinvey Live Services* with this application you need to make sure that:
-
-1. You have an application on _Kinvey Console_ with __Live Services turned on__;
-2. You have a __Books__ collection on your Kinvey Application;
-3. Open the `MainPage.xaml.cs` of this project and make sure to add your `Application ID`, `Application Secret` and user name and password for a _Kinvey Application User_.
-4. When you run the application, make sure to follow the logs on the console. They will
-indicate the state of _Kinvey Live Services_. Each time you add a new entity to the __Kinvey Collection__, those messages will appear on the console logs.
-
-Currently this project uses _Xam.Plugin.Connectivity_ package to track connectivity state changes. If a change occurs in the connectivity state, then re-registration to Kinvey Live Services will be triggered.
+// TODO: Write steps on how to run.
